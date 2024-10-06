@@ -11,7 +11,6 @@ Next generation observability for Go applications. IUDEX Go provides tracing and
     - [Setup with OTel SDK](#setup-with-otel-sdk)
     - [Tracing Functions](#tracing-functions)
     - [Chi Instrumentation](#chi-instrumentation)
-- [Environment Variables](#environment-variables)
 - [Appendix](#appendix)
 
 
@@ -22,8 +21,6 @@ Instrumenting your Go application with IUDEX takes a few steps:
   Install IUDEX Go and other dependencies with the following command:
   ```bash
   go get github.com/iudexai/iudex-go
-  go get github.com/go-chi/chi/v5
-  go get github.com/go-chi/chi/v5/middleware
   ```
 
 2. **Set up the IUDEX SDK**
@@ -124,6 +121,9 @@ func doSomething(ctx context.Context) {
 ### Chi Instrumentation
 To instrument your Go application that uses the Chi router, you can use IUDEX to add observability with minimal changes. Below is a more detailed example that includes multiple endpoints and middleware usage:
 
+1. Install OTel Chi middleware `go get github.com/riandyrn/otelchi`.
+
+2. Set up a config `var iudexConfig = iudex.InstrumentationConfig{`, instrument using `iudex.SetupOTelSDK`, add instrumented logger `logger := iudex.NewSlogLogger("main")`, and add OTel middleware `r.Use(otelchi.Middleware("instrumented-chi", otelchi.WithChiRoutes(r)))`
 ```go
 package main
 
@@ -136,6 +136,7 @@ import (
     "github.com/go-chi/chi/v5"
     "github.com/go-chi/chi/v5/middleware"
     "github.com/iudexai/iudex-go"
+    "github.com/riandyrn/otelchi"
 )
 
 type RequestBody struct {
@@ -143,13 +144,18 @@ type RequestBody struct {
     Field2 int    `json:"field2"`
 }
 
-func main() {
-    // Set up IUDEX with custom configuration
-    config := iudex.InstrumentationConfig{
-        ServiceName:    "chi-service",
-        ServiceVersion: "1.0.0",
-    }
+func stringPtr(s string) *string {
+  return &s
+}
 
+// Set up IUDEX with configuration
+var iudexConfig = iudex.InstrumentationConfig{
+  PublicAPIKey: stringPtr("YOUR_WRITE_ONLY_KEY_HERE"), // Its okay to commit this
+  ServiceName:  stringPtr("MY_SERVICE_NAME"),
+  Env:          stringPtr("YOUR_ENV"),
+}
+
+func main() {
     // Set up OpenTelemetry.
     otelShutdown, err := iudex.SetupOTelSDK(ctx, iudexConfig)
     if err != nil {
@@ -169,7 +175,9 @@ func main() {
     r.Use(middleware.RealIP)
     r.Use(middleware.Logger)
     r.Use(middleware.Recoverer)
-    r.Use(iudex.ChiMiddleware())
+
+    // Add otel middleware
+    r.Use(otelchi.Middleware("instrumented-chi", otelchi.WithChiRoutes(r)))
 
     // Define routes
     r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -203,9 +211,6 @@ func main() {
     http.ListenAndServe(":8080", r)
 }
 ```
-
-# Environment Variables
-- `IUDEX_API_KEY`: Your IUDEX API key to authenticate with the backend.
 
 # Appendix
 The `main.go` file demonstrates several key exported functions of IUDEX Go in detail:
