@@ -1,4 +1,4 @@
-module iudex-go
+module github.com/iudexai/iudex-go
 
 go 1.23.1
 
