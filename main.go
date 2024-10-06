@@ -40,23 +40,23 @@ type InstrumentationConfig struct {
 }
 
 // getDefaultConfig generates the default configuration values
-func getDefaultConfig() InstrumentationConfig {
-	defaultBaseURL := getEnv("BASE_URL", nil)
+func GetDefaultConfig() InstrumentationConfig {
+	defaultBaseURL := GetEnv("BASE_URL", nil)
 	if defaultBaseURL == nil {
-		defaultBaseURL = stringPtr("api.iudex.ai")
+		defaultBaseURL = StringPtr("api.iudex.ai")
 	}
-	defaultAPIKey := getEnv("API_KEY", nil)
-	defaultPublicAPIKey := getEnv("PUBLIC_API_KEY", nil)
-	defaultServiceName := getEnv("SERVICE_NAME", nil)
+	defaultAPIKey := GetEnv("API_KEY", nil)
+	defaultPublicAPIKey := GetEnv("PUBLIC_API_KEY", nil)
+	defaultServiceName := GetEnv("SERVICE_NAME", nil)
 	if defaultServiceName == nil {
-		defaultServiceName = stringPtr("default-service")
+		defaultServiceName = StringPtr("default-service")
 	}
-	defaultInstanceID := getEnv("INSTANCE_ID", nil)
-	defaultEnv := getEnv("ENVIRONMENT", nil)
+	defaultInstanceID := GetEnv("INSTANCE_ID", nil)
+	defaultEnv := GetEnv("ENVIRONMENT", nil)
 	if defaultEnv == nil {
-		defaultEnv = stringPtr("development")
+		defaultEnv = StringPtr("development")
 	}
-	defaultGitCommit := getEnv("GIT_COMMIT", nil)
+	defaultGitCommit := GetEnv("GIT_COMMIT", nil)
 
 	return InstrumentationConfig{
 		BaseURL:      defaultBaseURL,
@@ -69,22 +69,22 @@ func getDefaultConfig() InstrumentationConfig {
 	}
 }
 
-// getEnv retrieves the value of the environment variable named by the key or returns nil if not found
-func getEnv(key string, defaultValue *string) *string {
+// GetEnv retrieves the value of the environment variable named by the key or returns nil if not found
+func GetEnv(key string, defaultValue *string) *string {
 	if value, exists := os.LookupEnv(key); exists {
 		return &value
 	}
 	return defaultValue
 }
 
-// stringPtr returns a pointer to the given string
-func stringPtr(s string) *string {
+// StringPtr returns a pointer to the given string
+func StringPtr(s string) *string {
 	return &s
 }
 
 // setupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func setupOTelSDK(ctx context.Context, config InstrumentationConfig) (shutdown func(context.Context) error, err error) {
+func SetupOTelSDK(ctx context.Context, config InstrumentationConfig) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -105,7 +105,7 @@ func setupOTelSDK(ctx context.Context, config InstrumentationConfig) (shutdown f
 	}
 
 	// Set default values if not provided
-	defaults := getDefaultConfig()
+	defaults := GetDefaultConfig()
 	if config.ServiceName == nil {
 		config.ServiceName = defaults.ServiceName
 	}
@@ -123,25 +123,25 @@ func setupOTelSDK(ctx context.Context, config InstrumentationConfig) (shutdown f
 	}
 
 	// Set up propagator.
-	prop := newPropagator()
+	prop := NewPropagator()
 	otel.SetTextMapPropagator(prop)
 
 	// Set up resource.
-	res, err := newResource(ctx, config)
+	res, err := NewResource(ctx, config)
 	if err != nil {
 		handleErr(err)
 		return
 	}
 
 	// Set up headers.
-	headers, err := newHeaders(config)
+	headers, err := NewHeaders(config)
 	if err != nil {
 		handleErr(err)
 		return
 	}
 
 	// Set up trace provider.
-	tracerProvider, err := newTraceProvider(ctx, config, res, headers)
+	tracerProvider, err := NewTraceProvider(ctx, config, res, headers)
 	if err != nil {
 		handleErr(err)
 		return
@@ -161,14 +161,14 @@ func setupOTelSDK(ctx context.Context, config InstrumentationConfig) (shutdown f
 	return
 }
 
-func newPropagator() propagation.TextMapPropagator {
+func NewPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	)
 }
 
-func newResource(ctx context.Context, config InstrumentationConfig) (*resource.Resource, error) {
+func NewResource(ctx context.Context, config InstrumentationConfig) (*resource.Resource, error) {
 	// Create resource with service information
 	attributes := []attribute.KeyValue{}
 	if config.ServiceName != nil {
@@ -195,7 +195,7 @@ func newResource(ctx context.Context, config InstrumentationConfig) (*resource.R
 	return res, nil
 }
 
-func newHeaders(config InstrumentationConfig) (*map[string]string, error) {
+func NewHeaders(config InstrumentationConfig) (*map[string]string, error) {
 	if config.APIKey == nil && config.PublicAPIKey == nil {
 		return nil, fmt.Errorf("PUBLIC_WRITE_ONLY_IUDEX_API_KEY environment variable is missing or empty")
 	}
@@ -211,7 +211,7 @@ func newHeaders(config InstrumentationConfig) (*map[string]string, error) {
 	return &headers, nil
 }
 
-func newTraceProvider(ctx context.Context, config InstrumentationConfig, res *resource.Resource, headers *map[string]string) (*trace.TracerProvider, error) {
+func NewTraceProvider(ctx context.Context, config InstrumentationConfig, res *resource.Resource, headers *map[string]string) (*trace.TracerProvider, error) {
 	baseURL := "api.iudex.ai"
 	if config.BaseURL != nil {
 		baseURL = *config.BaseURL
@@ -255,16 +255,16 @@ func newLoggerProvider(ctx context.Context, config InstrumentationConfig, res *r
 	return loggerProvider, nil
 }
 
-func getLoggerProvider() internalLog.LoggerProvider {
+func GetLoggerProvider() internalLog.LoggerProvider {
 	return global.GetLoggerProvider()
 }
 
-func newSlogLogger(name string) *slog.Logger {
-	provider := getLoggerProvider()
+func NewSlogLogger(name string) *slog.Logger {
+	provider := GetLoggerProvider()
 	return otelslog.NewLogger(name, otelslog.WithLoggerProvider(provider))
 }
 
-func newZapLogger(name string) *zap.Logger {
-	provider := getLoggerProvider()
+func NewZapLogger(name string) *zap.Logger {
+	provider := GetLoggerProvider()
 	return zap.New(otelzap.NewCore(name, otelzap.WithLoggerProvider(provider)))
 }
